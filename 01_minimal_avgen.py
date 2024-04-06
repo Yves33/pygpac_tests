@@ -7,7 +7,7 @@ we expect it to be present, so we don't have to specify it in gpac.set_args()
 '''
 gpac.set_args(["",
                 "-js-dirs=/opt/gpac/share/gpac/scripts/jsf",
-				"-cfg=temp:cuda_lib=/usr/lib64/libcuda.so",
+		"-cfg=temp:cuda_lib=/usr/lib64/libcuda.so",
                 "-cfg=temp:cuvid_lib=/usr/lib64/libnvcuvid.so",
                 "-logs=filter@info:container@debug"
                 ])
@@ -61,6 +61,7 @@ elif pipeline==1:
 	[avgen] Error: Failed to load texture: Requested URL is not valid or cannot be found
     	at <anonymous> (/opt/gpac/share/gpac/scripts/jsf/avgen/init.js:240)
 	in shell, the command gpac avgen vout works
+        symlink ln -s /opt/gpac/share/gpac /usr/local/share/gpac works
 	'''
 	src = fs.load("avgen:fps=30000/1001:dur=30")
 	reframer=fs.load("reframer")
