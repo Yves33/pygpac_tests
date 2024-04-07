@@ -4,10 +4,13 @@ les exemples minimaux requièrent pygame+imgui (sauf minimal_avgen).
 en principe, le fichier glgpac.py reprend juste les routines du howto et ne contient pas trop de bugs
 
 __________
-0) 01_minimal_avgen.py
-le fichier de .gpac/GPAC.cfg (sous linux) ne contient pas l'option -js-dirs. 
+0) all exemples
++ le fichier de .gpac/GPAC.cfg (sous linux) ne contient pas l'option -js-dirs. 
 Il faudrait qu'elle soit présente et correctement renseignée, pour éviter d'avoir à la spécifier dans le programme python (on ne sait pas ou l'utilisateur a installé gpac)
-
++ libgpac.py utilise des fonctions built-in (type et filter) comme nom de variables (locales). 
+-- c'est un peu perturbant
+-- ça met la pagaille dans les sorotions syntaxiques
+-- remplacer type par _type et filter par _filter
 __________
 1) 01_minimal_avgen.py
 fs.load("avgen") ne marche pas sous python (Failed to get default shared dir//Filter avgen failed to setup: Bad Parameter). 
