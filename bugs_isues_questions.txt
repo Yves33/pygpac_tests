@@ -1,4 +1,4 @@
-BUGS, ISSUES and COMMENTS (python interface only)
+un symliBUGS, ISSUES and COMMENTS (python interface only)
 ==============================
 les exemples minimaux requièrent pygame+imgui (sauf minimal_avgen).
 en principe, le fichier glgpac.py reprend juste les routines du howto et ne contient pas trop de bugs
