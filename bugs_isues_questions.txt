@@ -9,7 +9,7 @@ __________
 Il faudrait qu'elle soit présente et correctement renseignée, pour éviter d'avoir à la spécifier dans le programme python (on ne sait pas ou l'utilisateur a installé gpac)
 + libgpac.py utilise des fonctions built-in (type et filter) comme nom de variables (locales). 
 -- c'est un peu perturbant
--- ça met la pagaille dans les sorotions syntaxiques
+-- ça met la pagaille dans les colorations syntaxiques
 -- remplacer type par _type et filter par _filter
 __________
 1) 01_minimal_avgen.py
