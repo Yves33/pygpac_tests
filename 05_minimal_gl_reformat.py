@@ -58,8 +58,6 @@ if __name__=='__main__':
     for f1,f2 in pairwise(in_chain.values()):
         f2.set_source(f1)
 
-    ##awfull hack
-    in_chain.__getattr__=in_chain.__getitem__
     tgt=in_chain["togpu"]
 
     running=True
