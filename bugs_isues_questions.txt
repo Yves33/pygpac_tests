@@ -11,6 +11,11 @@ Il faudrait qu'elle soit présente et correctement renseignée, pour éviter d'a
 -- c'est un peu perturbant
 -- ça met la pagaille dans les colorations syntaxiques
 -- remplacer type par _type et filter par _filter
+
+========== QUESTION ==============
+Je pense que c'est lié à ton installation, je n'arrive pas à reproduire - tu passes par une installation système (et ou ?) ou un build local ?
+(c'est le même souci pour ci-dessous avec GSHARE)
+
 __________
 1) 01_minimal_avgen.py
 fs.load("avgen") ne marche pas sous python (Failed to get default shared dir//Filter avgen failed to setup: Bad Parameter). 
@@ -28,6 +33,9 @@ NB: j'ai le même problème dans FromGLRGB: si j'utilise
 opid.set_prop("PixelFormat", "rgb") dans un filtre (toGLRGB),
 pid.get_prop("PixelFormat") échoue dans le filtre suivant
 
+========== RESOLUTION ==============
+corrigé via https://github.com/gpac/gpac/commit/5b492b20c0a737d0952a356d75755e6ab7050bf7
+
 __________
 2) 02_minimal_gl_pause_resume.py
 j'ai un filtre Controler (CAPS_INPUT_OUTPUT) qui de facon basique, fait:
@@ -39,6 +47,18 @@ def process() ->if paused: return 0 // else: forward packet normally
 -> est-ce que seuls les sinks purs (GF_CAPS_INPUT) sont autorisés à faire un pause/resume?
 -> peut on envisager un flag à la création du filtre qui empêcherait de compter ces erreurs
 
+========== RESOLUTION ==============
+Un filtre peut indiquer qu'il ne fait rien mais que c'est normal, utilise
+if paused: self.reschedule(0) return 0 //rappel ASAP
+ou
+if paused: self.reschedule(100000) return 0 //rappel dans ~100ms 
+
+C'est géré automatiquement pour les sinks et les sources, mais pas pour les filtres génériques
++ fix typo sur reschedule:
+https://github.com/gpac/gpac/commit/5d7731c4bce42fe2bfa82afcc0ca84eb3c6fc273
+
+
+
 __________
 2bis) 02_minimal_gl_pause_resume.py
 Dans ce même filtre Controler, j'ai une fonction step()
@@ -46,11 +66,22 @@ def step() -> if paused: self.paused=False;self.process();self.pause=True
 + step() marche (au moins dans une session avec une seule source), mais je ne suis pas sûr que ce soit la meilleure façon de procéder.
 + en plus, j'ai des problèmes sur mes dts qui ne sont en retard sur l'image (voir le point suivant), notamment après un seek
 
+========== RESOLUTION ==============
+C'est dangereux car ton process() est appelé via le handler d'event imgui, et potentiellement via la session (si tu active le multithread & co)
+Je ferai plutot step(): resume() self.step_mode=True
+et à la fin de process(): if self.step_mode: self.pause()
+
 __________
 3) 03_minimal_gl_pause_resume_seek.py
 Même filtre Controler que précédemment, mais avec une méthode seek.
 + avec ffdec, les premiers packets après le seek sont ceux attendus (avec un dts correct)
 + avec nfdec, les n (6-8) premiers packets sont dans la continuité des précédents. Je suppose qu'il faudrait vider le tampon du décodeur nvdec (comment?).
+
+========== RESOLUTION ==============
+Pas de nvdec sous le coude en ce moment et pas de souci avec vtb sous mac non plus, je regarde qd je peux.
+Il est probable qu'il faut récupérer l'event STOP et mettre ctx->reload_decoder_state = 2; pour forcer un delete/create, car l'API nvdec n'a pas l'air de permettre un flush 
+
+
 __________
 4) 04_minimal_gl_on_the_fly_recording.py
 J'insère ffenc de façon dynamique. Ca a l'air de marcher mais:
@@ -66,6 +97,13 @@ Je pense qu'il marche car j'arrive à forwarder les packets vers vout:disp=gl (a
 + vflip, vcrop, ffsws, ffenc n'acceptent pas des paquets d'interface sans data (donc avec seulement les texture ID). 
 En fait, il y a très peu de filtres qui utilisent opengl (vout, avmix?, compositor?, ...). Est-ce qu'il est obligatoire pour les paquets d'interface d'avoir des data?
 + peut-on pour utiliser avmix/compositor depuis python (pour mixer différents flux, faire du picture-in-picture, etc)
+
+========== RESOLUTION ==============
+Chez moi il marche pas (ton awful hack plante, j'ai pas creusé plus)
+Pour le moment les paquets d'interface qui n'ont pas de getData (juste getTexture) vont générer des erreurs si les filtres consommateurs ne gérent pas openGL.
+Pour le moment, on a pas de code générique faisant une relecture du GPU dans filters, chaque filtre doit le faire. 
+On peut utiliser avmix (ou autres filtres js) ou le compositor dans python comme n'importe quel autre filtre, par contre tu n'as pas accès aux entrailles du filtre
+
 
 ___________
 06) pas d'exemple
@@ -111,3 +149,24 @@ class myComposer:
         ## render background
         glBindTexture(GL_TEXTURE_2D,self.fgtex)
         ## render foreground
+
+
+
+========== RESOLUTION ==============
+> + si mes tests sont exacts, il n'y a aucune garantie que l'ordre des ipids du filtre compose doit celui dans lequel on affecte les sources (bg,fg)?
+Correct, ça depend des demuxers (donc potentiellement du réseau)
+
+> + lorsqu'on fait une iteration sur les ipids, les pids ont un champ filter_name (nom du filtre source), mais pas filter_ID. Or 2 filtres peuvent avoir le même nom (voir le cas ci dessus) mais pas le même ID.
+Correct
+
+La bonne approche est de garder tes sources qq part, et lors du configure_pid sur ton filtre de mix, utiliser pid.is_filter_in_parents(src_f). Regrade comment c'est fait dans avmix:
+https://github.com/gpac/gpac/blob/master/share/scripts/jsf/avmix/init.js#L3252
+
+Autre approche, forcer une propriété user sur tes PIDs
+- si tu est la source, pid.set_prop('MyProp', 'MySourceID')
+- si tu charges un filtre builtin, s.load("backgroung.mp4:#MyProp=MySourceID")
+
+et faire ensuite un check de propriété 'MyProp' sur le PID au moment du configure_pid. 
+
+
+
