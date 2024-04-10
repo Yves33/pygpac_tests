@@ -78,9 +78,8 @@ Même filtre Controler que précédemment, mais avec une méthode seek.
 + avec nfdec, les n (6-8) premiers packets sont dans la continuité des précédents. Je suppose qu'il faudrait vider le tampon du décodeur nvdec (comment?).
 
 ========== RESOLUTION ==============
-Pas de nvdec sous le coude en ce moment et pas de souci avec vtb sous mac non plus, je regarde qd je peux.
-Il est probable qu'il faut récupérer l'event STOP et mettre ctx->reload_decoder_state = 2; pour forcer un delete/create, car l'API nvdec n'a pas l'air de permettre un flush 
-
+fixed
+https://github.com/gpac/gpac/commit/4572daa8f28a3ece40e959a6a853f4f65476886a
 
 __________
 4) 04_minimal_gl_on_the_fly_recording.py
