@@ -12,15 +12,21 @@ Il faudrait qu'elle soit présente et correctement renseignée, pour éviter d'a
 -- ça met la pagaille dans les colorations syntaxiques
 -- remplacer type par _type et filter par _filter
 
-========== QUESTION ==============
-Je pense que c'est lié à ton installation, je n'arrive pas à reproduire - tu passes par une installation système (et ou ?) ou un build local ?
-(c'est le même souci pour ci-dessous avec GSHARE)
+========== RESOLUTION ==============
+Corrigé
+https://github.com/gpac/gpac/commit/4d01223f556b5b87f5886ab5b90fccfcb7585c95
+
+API update pour type et filter:
+https://github.com/gpac/gpac/commit/4a0286442448f317ce4bab234ca9d8bc11cc712d
 
 __________
 1) 01_minimal_avgen.py
 fs.load("avgen") ne marche pas sous python (Failed to get default shared dir//Filter avgen failed to setup: Bad Parameter). 
 + je dois remplacer $GSHARE/res par un chemin absolu hardcoded dans avgen/init.js
 + une option de configuration -gshare (similaire à -js-dirs) pourrait être implémentée (ou à défaut une variable d'environnement)?
+
+========== RESOLUTION ==============
+corrigé par fix ci-dessus
 
 __________
 1bis) 01_minimal_avgen.py
@@ -88,6 +94,13 @@ J'insère ffenc de façon dynamique. Ca a l'air de marcher mais:
 + lorsque j'arrête l'enregistrement, le fichier n'est pas écrit sur le disque avant l'appel à fs.abort(GF_FS_FLUSH_ALL) (et je souhaiterai qu'il le fût!)
 + lorsque j'arrête l'enregistrement, les premières frames suivant l'arrêt sont dispatchées à vitesse maximale 
 (videos en haute resolution 5760x2880. l'encodage se fait à ~0.3x vitesse reelle sur mon poste)
+
+========== RESOLUTION ==============
+Quelques fixes liés au remove:
+https://github.com/gpac/gpac/commit/f30501974e4df353e76f9e7a9bd63e2860fdf433
+
+J'arrive à faire des remove() avant ou après insertion. A priori pas besoin de faire des remove() cependant, ça evite l'envoi possible de stop/play.
+Pour ta vitesse en fin de codage, c'est lié au reframer qui n'a oas été mis en pause donc il fait un catchup. Fait un pause/resume à la fin de l'enregistrement.
 
 __________
 05) 05_minimal_gl_forward.py
