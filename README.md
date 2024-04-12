@@ -28,8 +28,9 @@ gpac (https://github.com/gpac/gpac)
 
 Installation:
 =============
-edit gpac_gl_full_example.py to acapt path to input video
-python About:
+edit gpac_gl_full_example.py to acapt path to input video. Run through your favorite shell/dev environnement.
+
+About:
 ======
 
 This repo is an extended version of the full gpac python+pygame+gl example.
