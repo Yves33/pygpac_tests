@@ -1,4 +1,4 @@
-BACKEND issues
+BACKEND issues:
 ==============
 Trying minimal examples of different python/GL backends for gpac
 =>working (both ffdec or nvdev,with or without glpush)  
@@ -13,7 +13,8 @@ Comments:
 =========
 + I'd think that this is due to context switching, but don't know how to set appropriate context.  
 + surprised that it does not work with SDL2 backend (which is very close to pygame).  
-+ sdl2, pyglet and glfw are supposed to run single thread. should not be necessary to overwrite on_gl_activate.  
++ sdl2, pyglet and glfw are supposed to run single thread. should not be necessary to overwrite on_gl_activate.
++ of note, pygame imgui integration uses FixedPipelineRender, Whereas all others use ProgrammablePipelineRendered 
 
 Requirements:
 =============
