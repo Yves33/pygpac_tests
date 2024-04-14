@@ -9,7 +9,7 @@ Trying minimal examples of different python/GL backends for gpac
 +backend_pyglet_minimal.py
 +backend_glfw_minimal.py
 
-comments:
+Comments:
 =========
 + I'd think that this is due to context switching, but don't know how to set appropriate context.
 + surprised that it does not work with SDL2 backend (which is very close to pygame)
