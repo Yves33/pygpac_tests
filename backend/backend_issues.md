@@ -1,6 +1,6 @@
 BACKEND issues:
 ==============
-Trying minimal examples of different python/GL backends for gpac (tested: pygame, glfw, sdl2, pyglet. not tested: glut, modernl)
+Trying minimal examples of different python/GL backends for gpac (tested: pygame, glfw, sdl2, pyglet. not tested (yet): glut, modernl)
 =>working 
 +backend_pygame_minimal.py  
 
@@ -33,3 +33,5 @@ gpac, pyOpenGL [pygame | pyglet| pysdl2 | glfw]
 Why:
 ====
 Need to use imgui-bundle (https://github.com/pthom/imgui_bundle) to get access to imnodes from python.
+
+nb: examples with imgui can be ignored!
