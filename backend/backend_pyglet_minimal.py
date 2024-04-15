@@ -36,7 +36,7 @@ class GLWindow(pyglet.window.Window):
                     "-cfg=temp:cuda_lib=/usr/lib64/libcuda.so",
                     "-cfg=temp:cuvid_lib=/usr/lib64/libnvcuvid.so",
                     "-logs=filter@info:container@debug"])
-        if 0:
+        if 1:
             self.fs = GLFilterSession(flags=gpac.GF_FS_FLAG_NON_BLOCKING | gpac.GF_FS_FLAG_REQUIRE_SOURCE_ID, 
                                     blacklist=None, 
                                     nb_threads=0, 
@@ -68,7 +68,7 @@ class GLWindow(pyglet.window.Window):
             return
         
         ## render loop
-        #self.shape.draw()
+        self.shape.draw()
         glUseProgram(0)
         glDisable(GL_DEPTH_TEST)
 
