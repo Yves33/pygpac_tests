@@ -3,8 +3,10 @@ from OpenGL.GL import *
 import pyglet
 
 from pygpacfilters import *         ## utility filters: toGLRGB,fromGLRGB, DeadSink, Controller, FPSCounter...
+from imgui.integrations.pyglet import create_renderer,PygletProgrammablePipelineRenderer
+import imgui
+
 from itertools import pairwise
-from testshape import TestShape,Shaper
 
 class GLFilterSession(gpac.FilterSession):
     def __init__(self, flags=0, blacklist=None, nb_threads=0, sched_type=0,window=None,context=None):
@@ -28,6 +30,11 @@ class GLWindow(pyglet.window.Window):
         super(GLWindow, self).__init__(*args,**kwargs)
         VIDEOSRC="../../video.mp4"
          ## initialize imgui
+        imgui.create_context()
+        self.impl=PygletProgrammablePipelineRenderer(self)
+        io = imgui.get_io()
+        io.fonts.add_font_default()
+        io.display_size = self.width,self.height
         
         ## initialize gpac
         gpac.init(0)
@@ -53,24 +60,36 @@ class GLWindow(pyglet.window.Window):
             'dec':self.fs.load("ffdec"), 
             'reframer':self.fs.load("reframer:rt=on"),
             'glpush':self.fs.load("glpush.js"),
-            'togpu':ToGLRGB(self.fs,size=1.0,mirror=True, mirror_viewport=(0,0,self.width,self.height)),
-            #'shaper':Shaper(self.fs),
+            'togpu':ToGLRGB(self.fs,size=1.0),
             'dst':DeadSink(self.fs)
             }
         for f1,f2 in pairwise(self.in_chain.values()):
             f2.set_source(f1)
-        self.shape=TestShape()
 
     def on_draw(self):
         fs=self.fs
+        tgt=self.in_chain["togpu"]
         fs.run()
         if fs.last_task:
             return
         
+        ## gui setup
+        imgui.new_frame()
+        imgui.begin("Texture window", True)
+        wwidth = imgui.get_window_content_region_max()[0]-2*imgui.get_style().frame_padding.x 
+        try:
+            imgui.image(tgt.fbo_attachement, wwidth,wwidth*tgt.o_height//tgt.o_width, uv0=(0,1),uv1=(1,0),border_color=(0, 0, 0, 1))
+        except:
+            pass
+        imgui.text("test")
+        imgui.end()
+
         ## render loop
-        #self.shape.draw()
+        glClear(GL_COLOR_BUFFER_BIT)
         glUseProgram(0)
         glDisable(GL_DEPTH_TEST)
+        imgui.render()
+        self.impl.render(imgui.get_draw_data())
 
     def on_resize(self,w,h):
         pass
@@ -79,28 +98,36 @@ class GLWindow(pyglet.window.Window):
         pass
         
     def on_key_press(self,symbol, modifiers):
-        pass
+        if imgui.get_io().want_capture_keyboard:
+            return
 
     def on_key_release(self,symbol, modifiers):
-        pass
+        if imgui.get_io().want_capture_keyboard:
+            return
             
     def on_text(self,text):
-        pass
+        if imgui.get_io().want_capture_keyboard:
+            return
                 
     def on_mouse_press(self,x, y, button, modifiers):
-        pass
+        if imgui.get_io().want_capture_mouse:
+            return
 
     def on_mouse_release(self,x, y, button, modifiers):
-        pass
+        if imgui.get_io().want_capture_mouse:
+            return
         
     def on_mouse_scroll(self,x, y, button, modifiers):
-        pass
+        if imgui.get_io().want_capture_mouse:
+            return
 
     def on_mouse_motion(self,x, y, dx, dy):
-        pass
+        if imgui.get_io().want_capture_mouse:
+            return
 
     def on_mouse_drag(self,x, y, dx, dy, buttons, modifiers):
-        pass
+        if imgui.get_io().want_capture_mouse:
+            return
 
 if __name__ == '__main__':
     glwindow=GLWindow(width=1080, height=720, vsync=True,resizable=True)

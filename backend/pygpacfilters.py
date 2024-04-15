@@ -7,7 +7,7 @@ import traceback
 import libgpac as gpac
 import time
 fs_all_tx = textwrap.dedent("""\
-    #version 420
+    #version 130
     uniform sampler2D sTexture1; // luminance or rgb
     uniform sampler2D sTexture2; // interleaved uv or u
     uniform sampler2D sTexture3; // v
@@ -91,7 +91,7 @@ fs_all_tx = textwrap.dedent("""\
 """)
 
 vs_single_tx = textwrap.dedent("""\
-    #version 440                      
+    #version 130                      
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform int nbTextures; //1=rgb, 2=nv12, 3=yuv
@@ -105,7 +105,7 @@ vs_single_tx = textwrap.dedent("""\
                                         vec2( 0.5, -0.5),
                                         vec2(-0.5, -0.5));
         // Index into our array using gl_VertexID
-        vec2 flip=vec2(1.0,-1.0);
+        vec2 flip=vec2(1.0,1.0);
         vTexCoord=vertices[gl_VertexID]*flip+vec2(0.5,0.5);                       
         gl_Position = (uPMatrix * uMVMatrix)*vec4(2*vertices[gl_VertexID],1.0,1.0);
     }
@@ -178,6 +178,7 @@ class Texture:
             tx = pck.get_gl_texture(0)
             self.texture1 = tx.id
             if reset:
+                glActiveTexture(GL_TEXTURE0)
                 glBindTexture(GL_TEXTURE_2D, self.texture1)
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
@@ -186,6 +187,7 @@ class Texture:
                 tx = pck.get_gl_texture(1)
                 self.texture2 = tx.id
                 if reset:
+                    glActiveTexture(GL_TEXTURE1)
                     glBindTexture(GL_TEXTURE_2D, self.texture2)
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
@@ -193,6 +195,7 @@ class Texture:
                     tx = pck.get_gl_texture(2)
                     self.texture3 = tx.id
                     if reset:
+                        glActiveTexture(GL_TEXTURE2)
                         glBindTexture(GL_TEXTURE_2D, self.texture3)
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
@@ -454,12 +457,18 @@ class ToGLRGB(gpac.FilterCustom):
         self.program=Program(vs_single_tx, fs_all_tx)
         self.size_request=kwargs.pop("size",1.0)
         self.pid_props=kwargs.pop("pid_props",dict())
+        self.mirror=kwargs.pop("mirror",False)
+        self.mirror_viewport=kwargs.pop("mirror_viewport",(-1,-1,-1,-1))
+        if self.mirror and (self.mirror_viewport[2]<=0 or self.mirror_viewport[3]<=0):
+            print("error: must specify valid viewport to use mirror option")
         ## program uniforms
         self.ortho_mx = ortho(-1, 1, 1, -1, -50, 50) # left right top bottom
         self.view_matrix = np.identity(4, dtype=np.float32)
         self.saturation=1.0
         self.contrast=1.0
         self.brightness=1.0
+        ## we're using glVertexID to render, howver, the specs makes it mandatory to have one vao bound (empty vao is ok)
+        self.vao=glGenVertexArrays(1)
 
     def _make_buffer(self,w,h):
         if hasattr(self,"fbo_attachment"):
@@ -573,8 +582,23 @@ class ToGLRGB(gpac.FilterCustom):
         glUniform1f(self.program.getUniformLocation("brightness"),self.brightness)
         glUniform1f(self.program.getUniformLocation("saturation"),self.saturation)
         glUniform1f(self.program.getUniformLocation("contrast"),self.contrast)
+        glUniformMatrix4fv(self.program.getUniformLocation("uMVMatrix"), 1, GL_FALSE, self.view_matrix*scale(1.0,1.0,1.0))
+        glBindVertexArray(self.vao)
         glDrawArrays(GL_QUADS, 0, 4)
+        if self.mirror:
+            glBindFramebuffer(GL_FRAMEBUFFER,0)
+            glViewport(*self.mirror_viewport)
+            glUniform1i(self.program.getUniformLocation("nbTextures"),1)
+            glUniform1f(self.program.getUniformLocation("brightness"),1.0)
+            glUniform1f(self.program.getUniformLocation("saturation"),1.0)
+            glUniform1f(self.program.getUniformLocation("contrast"),1.0)
+            glActiveTexture(GL_TEXTURE0)
+            glBindTexture(GL_TEXTURE_2D, self.fbo_attachement)
+            glUniform1i(self.program.getUniformLocation("sTexture1"), 0)
+            glBindVertexArray(self.vao)
+            glDrawArrays(GL_QUADS, 0, 4)
         glBindFramebuffer(GL_FRAMEBUFFER,0)
+        glBindVertexArray(0)
 
 class FromGLRGB(gpac.FilterCustom):
     '''

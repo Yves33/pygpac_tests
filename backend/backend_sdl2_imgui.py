@@ -3,7 +3,9 @@ from OpenGL.GL import *
 from sdl2 import *
 
 from pygpacfilters import *         ## utility filters: toGLRGB,fromGLRGB, DeadSink, Controller, FPSCounter...
-from testshape import TestShape,Shaper
+from imgui.integrations.sdl2 import SDL2Renderer
+import imgui
+
 from itertools import pairwise
 
 class GLFilterSession(gpac.FilterSession):
@@ -28,8 +30,12 @@ class GLFilterSession(gpac.FilterSession):
 def main():
     VIDEOSRC="../../video.mp4"
     ## initialize sdl2 and imgui
-    width, height = 1280, 720
-    window, gl_context = impl_pysdl2_init(width,height)
+    window, gl_context = impl_pysdl2_init()
+    imgui.create_context()
+    impl = SDL2Renderer(window)
+    io = imgui.get_io()
+    io.fonts.add_font_default()
+    io.display_size = 1280, 720
 
     ## initialize gpac
     gpac.init(0)
@@ -56,15 +62,14 @@ def main():
         'dec':fs.load("nvdec"), 
         'reframer':fs.load("reframer:rt=on"),
         'glpush':fs.load("glpush.js"),
-        'togpu':ToGLRGB(fs,size=1.0,mirror=True, mirror_viewport=(0,0,width,height)),
-        #'shaper':Shaper(fs),
+        'togpu':ToGLRGB(fs,size=1.0),
         'dst':DeadSink(fs)
         }
     for f1,f2 in pairwise(in_chain.values()):
         f2.set_source(f1)
+    tgt=in_chain["togpu"]
 
     event = SDL_Event()
-    shape=TestShape()
     running=True
     while running:
         fs.run()
@@ -75,25 +80,42 @@ def main():
             if event.type == SDL_QUIT:
                 running = False
                 break
+            impl.process_event(event)
+        impl.process_inputs()
+        
+        ## gui setup
+        imgui.new_frame()
+        imgui.begin("Texture window", True)
+        wwidth = imgui.get_window_content_region_max()[0]-2*imgui.get_style().frame_padding.x
+        try:
+            imgui.image(tgt.fbo_attachement, wwidth,wwidth*tgt.o_height//tgt.o_width, uv0=(0,1),uv1=(1,0),border_color=(0, 0, 0, 1))
+        except:
+            pass
+        imgui.text("test")
+        imgui.end()
         
         ## render loop
-        shape.draw()
+        glClear(GL_COLOR_BUFFER_BIT)
         glUseProgram(0)
         glDisable(GL_DEPTH_TEST)
+        imgui.render()
+        impl.render(imgui.get_draw_data())
         SDL_GL_SwapWindow(window)
         
     fs.print_graph()
+    impl.shutdown()
     SDL_GL_DeleteContext(gl_context)
     SDL_DestroyWindow(window)
     SDL_Quit()
 
 
-def impl_pysdl2_init(width, height):
+def impl_pysdl2_init():
     '''
     creates an SDL window - minimal error checking
     '''
     import ctypes
     import sys
+    width, height = 1280, 720
     window_name = "minimal ImGui/SDL2 example"
     SDL_Init(SDL_INIT_EVERYTHING)
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1)

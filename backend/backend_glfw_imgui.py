@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 from OpenGL.GL import *
-import pygame
+import glfw
 
 from pygpacfilters import *         ## utility filters: toGLRGB,fromGLRGB, DeadSink, Controller, FPSCounter...
+from imgui.integrations.glfw import GlfwRenderer
+import imgui
+
 from itertools import pairwise
-from testshape import TestShape,Shaper
+import time
+
+import sys
 
 class GLFilterSession(gpac.FilterSession):
     def __init__(self, flags=0, blacklist=None, nb_threads=0, sched_type=0,window=None,context=None):
@@ -19,16 +24,16 @@ class GLFilterSession(gpac.FilterSession):
         it should'nt be necessary to do anything here!
         '''
         if param:
-            pass
+            glfw.make_context_current(window)
             #super(MyFilterSession).on_gl_activate(param) #<=should we call inherited method and when?
         print("GLFilterSession: activating GL",param)
 
 def main():
-    VIDEOSRC="../../video.mp4"
-    ## initialize pygame and imgui
-    width, height = 1280, 720
-    pygame.init()
-    pygame.display.set_mode((width, height), pygame.DOUBLEBUF|pygame.OPENGL|pygame.HWSURFACE, 0)
+    VIDEOSRC="../video.mp4"
+    ## initialize glfw and imgui
+    window = impl_glfw_init()
+    imgui.create_context()
+    impl = GlfwRenderer(window)
 
     ## initialize gpac
     gpac.init(0)
@@ -42,7 +47,7 @@ def main():
                                         blacklist=None, 
                                         nb_threads=0, 
                                         sched_type=0,
-                                        window=None,
+                                        window=window,
                                         context=None)
     else:
         fs = gpac.FilterSession(gpac.GF_FS_FLAG_NON_BLOCKING | gpac.GF_FS_FLAG_REQUIRE_SOURCE_ID, "")
@@ -54,31 +59,69 @@ def main():
         'dec':fs.load("ffdec"), 
         'reframer':fs.load("reframer:rt=on"),
         'glpush':fs.load("glpush.js"),
-        'togpu':ToGLRGB(fs,size=1.0,mirror=True, mirror_viewport=(0,0,width,height)),
-        #'shaper':Shaper(fs),
+        'togpu':ToGLRGB(fs,size=1.0),
         'dst':DeadSink(fs)
         }
     for f1,f2 in pairwise(in_chain.values()):
         f2.set_source(f1)
-
-    shape=TestShape()
-    running=True
-    while running:
+    tgt=in_chain["togpu"]
+    
+    while not glfw.window_should_close(window):
         fs.run()
         if fs.last_task:
             break
-        ## pygame event handling
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running=False
-                break
+        glfw.poll_events()
+        impl.process_inputs()
+
+        ## gui setup
+        imgui.new_frame()
+        imgui.begin("Texture window", True)
+        wwidth = imgui.get_window_content_region_max()[0]-2*imgui.get_style().frame_padding.x 
+        try:
+            imgui.image(tgt.fbo_attachement, wwidth,wwidth*tgt.o_height//tgt.o_width, uv0=(0,1),uv1=(1,0),border_color=(0, 0, 0, 1))
+        except:
+            pass
+        imgui.text("test")
+        imgui.end()
 
         ## render loop
-        shape.draw()
+        glClear(GL_COLOR_BUFFER_BIT)
         glUseProgram(0)
         glDisable(GL_DEPTH_TEST)
-        pygame.display.flip()
-    fs.print_graph()
+        imgui.render()
+        impl.render(imgui.get_draw_data())
+        glfw.swap_buffers(window)
+
+    impl.shutdown()
+    glfw.terminate()
+
+
+def impl_glfw_init():
+    width, height = 1280, 720
+    window_name = "minimal ImGui/GLFW3 example"
+
+    if not glfw.init():
+        print("Could not initialize OpenGL context")
+        sys.exit(1)
+
+    # OS X supports only forward-compatible core profiles from 3.2
+    glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
+    glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
+    glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+
+    glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, GL_TRUE)
+
+    # Create a windowed mode window and its OpenGL context
+    window = glfw.create_window(int(width), int(height), window_name, None, None)
+    glfw.make_context_current(window)
+
+    if not window:
+        glfw.terminate()
+        print("Could not initialize Window")
+        sys.exit(1)
+
+    return window
+
 
 if __name__ == "__main__":
     main()
