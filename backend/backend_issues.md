@@ -1,7 +1,7 @@
 BACKEND issues:
 ==============
-Trying minimal examples of different python/GL backends for gpac (tested: pygame, glfw, sdl2, pyglet, glut. not tested (yet): sfml, modernl)
-=>working:
+Trying minimal examples of different python/GL backends for gpac (tested: pygame, glfw, sdl2, pyglet, glut. not tested (yet): sfml, modernl)  
+=>working:  
 +backend_pygame_minimal.py  
 +backend_glut_minimal.py  
 
