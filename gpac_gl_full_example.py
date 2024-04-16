@@ -3,7 +3,7 @@ from __future__ import division
 from OpenGL.GL import *
 import pygame
 
-from glgpac import *         ## utility routines and filters. toGPU, Deadsink, ...
+from pygpacfilters import *         ## utility routines and filters. toGPU, Deadsink, ...
 from imgui.integrations.pygame import PygameRenderer
 import imgui
 
@@ -113,7 +113,7 @@ class RateLimit:
         return False
     
 if __name__=='__main__':
-    VIDEOSRC="../video.mp4"
+    VIDEOSRC="../../video.mp4"
     ## initialize pygame and imgui
     width, height = 1280, 720
     pygame.init()
@@ -186,7 +186,7 @@ if __name__=='__main__':
         imgui.new_frame()
         imgui.begin("Texture window", True)
         wwidth = imgui.get_window_content_region_max()[0]-2*imgui.get_style().frame_padding.x 
-        imgui.image(tgt.fbo_attachement, wwidth,wwidth*tgt.height//tgt.width, uv0=(0,1),uv1=(1,0),border_color=(0, 0, 0, 1))
+        imgui.image(tgt.fbo_attachement, wwidth,wwidth*tgt.o_height//tgt.o_width, uv0=(0,1),uv1=(1,0),border_color=(0, 0, 0, 1))
         if imgui.button("Play" if ctl.paused else "Pause"):
             ctl.toggle()
         imgui.internal.push_item_flag(imgui.internal.ITEM_DISABLED, not ctl.paused)
@@ -203,14 +203,10 @@ if __name__=='__main__':
         if _seek:
             ctl.seek(seekto)
         imgui.new_line()
-        u1, brightness=imgui.slider_float("Brightness",brightness,0,3.0)
-        u2, saturation=imgui.slider_float("Saturation",saturation,0,3.0)
-        u3, contrast=imgui.slider_float("Contrast",contrast,0,3.0)
-        changed=u1 or u2 or u3
-        glUseProgram(tgt.texture.prog.program)
-        glUniform1f(tgt.texture.prog.getUniformLocation("brightness"),brightness)
-        glUniform1f(tgt.texture.prog.getUniformLocation("saturation"),saturation)
-        glUniform1f(tgt.texture.prog.getUniformLocation("contrast"),contrast)
+        u1, tgt.brightness=imgui.slider_float("Brightness",tgt.brightness,0,3.0)
+        u2, tgt.saturation=imgui.slider_float("Saturation",tgt.saturation,0,3.0)
+        u3, tgt.contrast=imgui.slider_float("Contrast",tgt.contrast,0,3.0)
+        changed=u1 or u2 or u3 
         ## add instant record button
         toggle,recording=imgui.checkbox("Record",recording)
         if toggle:

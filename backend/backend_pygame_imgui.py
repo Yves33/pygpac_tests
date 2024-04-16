@@ -2,6 +2,8 @@
 from OpenGL.GL import *
 import pygame
 
+import sys
+sys.path.append("../")
 from pygpacfilters import *         ## utility filters: toGLRGB,fromGLRGB, DeadSink, Controller, FPSCounter...
 from imgui.integrations.pygame import PygameRenderer
 import imgui

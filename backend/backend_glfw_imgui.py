@@ -2,13 +2,13 @@
 from OpenGL.GL import *
 import glfw
 
+import sys
+sys.path.append("../")
 from pygpacfilters import *         ## utility filters: toGLRGB,fromGLRGB, DeadSink, Controller, FPSCounter...
 from imgui.integrations.glfw import GlfwRenderer
 import imgui
 
 from itertools import pairwise
-
-import sys
 
 def main():
     VIDEOSRC="../../video.mp4"
