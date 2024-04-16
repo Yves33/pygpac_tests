@@ -3,28 +3,8 @@ from OpenGL.GL import *
 from sdl2 import *
 
 from pygpacfilters import *         ## utility filters: toGLRGB,fromGLRGB, DeadSink, Controller, FPSCounter...
-from testshape import TestShape,Shaper
 from itertools import pairwise
-
-class GLFilterSession(gpac.FilterSession):
-    def __init__(self, flags=0, blacklist=None, nb_threads=0, sched_type=0,window=None,context=None):
-        gpac.FilterSession.__init__(self, flags, blacklist, nb_threads, sched_type)
-        self.window=window
-        self.context=context
-
-    def on_gl_activate(self,param):
-        '''
-        + nothing is required for pygame, works even without subclassing FilterSession
-        + with sdl2 (but also with pyglet or glfw), we're supposed to run in single threaded mode.
-        it should'nt be necessary to do anything here!
-        '''
-        if param:
-            SDL_GL_MakeCurrent(self.window, self.context)
-            #super(MyFilterSession).on_gl_activate(param) #<=should we call inherited method and when?
-        print("GLFilterSession: activating GL",param)
-
-
-        
+       
 def main():
     VIDEOSRC="../../video.mp4"
     ## initialize sdl2 and imgui
@@ -38,33 +18,22 @@ def main():
                     "-cfg=temp:cuda_lib=/usr/lib64/libcuda.so",
                     "-cfg=temp:cuvid_lib=/usr/lib64/libnvcuvid.so",
                     "-logs=filter@info:container@debug"])
-    if 0:
-        fs = GLFilterSession(flags=gpac.GF_FS_FLAG_NON_BLOCKING | gpac.GF_FS_FLAG_REQUIRE_SOURCE_ID, 
-                         blacklist="",
-                         nb_threads=0, 
-                         sched_type=0,
-                         window=window,
-                         context=gl_context
-                         )
-    else:
-        fs = gpac.FilterSession(gpac.GF_FS_FLAG_NON_BLOCKING | gpac.GF_FS_FLAG_REQUIRE_SOURCE_ID, "")
+    fs = gpac.FilterSession(gpac.GF_FS_FLAG_NON_BLOCKING | gpac.GF_FS_FLAG_REQUIRE_SOURCE_ID, "")
     fs.external_opengl_provider()
 
     ## setup filter list
     in_chain={
         'src':fs.load_src(VIDEOSRC),
         'dec':fs.load("nvdec"), 
-        'reframer':fs.load("reframer:rt=on"),
+        'reframer':fs.load("reframer:rt=off"),
         'glpush':fs.load("glpush.js"),
         'togpu':ToGLRGB(fs,size=1.0,mirror=True, mirror_viewport=(0,0,width,height)),
-        #'shaper':Shaper(fs),
         'dst':DeadSink(fs)
         }
     for f1,f2 in pairwise(in_chain.values()):
         f2.set_source(f1)
 
     event = SDL_Event()
-    shape=TestShape()
     running=True
     while running:
         fs.run()
@@ -77,7 +46,6 @@ def main():
                 break
         
         ## render loop
-        shape.draw()
         glUseProgram(0)
         glDisable(GL_DEPTH_TEST)
         SDL_GL_SwapWindow(window)
@@ -92,8 +60,6 @@ def impl_pysdl2_init(width, height):
     '''
     creates an SDL window - minimal error checking
     '''
-    import ctypes
-    import sys
     window_name = "minimal ImGui/SDL2 example"
     SDL_Init(SDL_INIT_EVERYTHING)
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1)
@@ -103,9 +69,9 @@ def impl_pysdl2_init(width, height):
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1)
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 8)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG)
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4)
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4)
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY) ## force compatibility profile as glpush uses GL_LUMINANCE
     SDL_SetHint(SDL_HINT_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK, b"1")
     SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, b"1")
     window = SDL_CreateWindow(
@@ -118,6 +84,7 @@ def impl_pysdl2_init(width, height):
     )
     gl_context = SDL_GL_CreateContext(window)
     SDL_GL_MakeCurrent(window, gl_context)
+    SDL_GL_SetSwapInterval(0)
     return window, gl_context
 
 

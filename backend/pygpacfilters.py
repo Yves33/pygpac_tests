@@ -6,6 +6,9 @@ import traceback
 
 import libgpac as gpac
 import time
+
+import importlib
+
 fs_all_tx = textwrap.dedent("""\
     #version 130
     uniform sampler2D sTexture1; // luminance or rgb
@@ -100,8 +103,10 @@ vs_single_tx = textwrap.dedent("""\
     out vec2 vTexCoord;
     
     void main(){
-        const vec2 vertices[4] = vec2[4](vec2(-0.5,  0.5),
+        const vec2 vertices[6] = vec2[6](vec2(-0.5,  0.5),
                                         vec2( 0.5,  0.5),
+                                        vec2( 0.5, -0.5),
+                                        vec2(-0.5,  0.5),
                                         vec2( 0.5, -0.5),
                                         vec2(-0.5, -0.5));
         // Index into our array using gl_VertexID
@@ -178,7 +183,7 @@ class Texture:
             tx = pck.get_gl_texture(0)
             self.texture1 = tx.id
             if reset:
-                glActiveTexture(GL_TEXTURE0)
+                ##err=glGetGraphicsResetStatus()
                 glBindTexture(GL_TEXTURE_2D, self.texture1)
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
@@ -584,7 +589,7 @@ class ToGLRGB(gpac.FilterCustom):
         glUniform1f(self.program.getUniformLocation("contrast"),self.contrast)
         glUniformMatrix4fv(self.program.getUniformLocation("uMVMatrix"), 1, GL_FALSE, self.view_matrix*scale(1.0,1.0,1.0))
         glBindVertexArray(self.vao)
-        glDrawArrays(GL_QUADS, 0, 4)
+        glDrawArrays(GL_TRIANGLES, 0, 6)
         if self.mirror:
             glBindFramebuffer(GL_FRAMEBUFFER,0)
             glViewport(*self.mirror_viewport)
@@ -596,7 +601,7 @@ class ToGLRGB(gpac.FilterCustom):
             glBindTexture(GL_TEXTURE_2D, self.fbo_attachement)
             glUniform1i(self.program.getUniformLocation("sTexture1"), 0)
             glBindVertexArray(self.vao)
-            glDrawArrays(GL_QUADS, 0, 4)
+            glDrawArrays(GL_TRIANGLES, 0, 6)
         glBindFramebuffer(GL_FRAMEBUFFER,0)
         glBindVertexArray(0)
 

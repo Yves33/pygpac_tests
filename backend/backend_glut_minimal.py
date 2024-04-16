@@ -4,18 +4,13 @@ from OpenGL.GL import *
 
 from pygpacfilters import *         ## utility filters: toGLRGB,fromGLRGB, DeadSink, Controller, FPSCounter...
 from itertools import pairwise
-from testshape import TestShape,Shaper
 
 def draw():
     fs.run()
     if fs.last_task:
         return
-    shape.draw()
     glutSwapBuffers()
-
-def motion(x, y):
-    glutPostRedisplay() 
-
+    glutPostRedisplay()
 
 def keyboard(c, x, y):
     if c == chr(27):
@@ -35,7 +30,6 @@ if __name__ == "__main__":
     glutCreateWindow("Minimal glut exemple")
     glutDisplayFunc(draw)
     glutReshapeFunc(reshape)
-    glutIdleFunc(glutPostRedisplay)
     glutKeyboardFunc(keyboard)
     gpac.init(0)
     gpac.set_args(["",
@@ -48,16 +42,14 @@ if __name__ == "__main__":
     ## setup filter list
     in_chain={
         'src':fs.load_src(VIDEOSRC),
-        'dec':fs.load("ffdec"), 
-        'reframer':fs.load("reframer:rt=on"),
+        'dec':fs.load("nvdec"), 
+        'reframer':fs.load("reframer:rt=off"),
         'glpush':fs.load("glpush.js"),
         'togpu':ToGLRGB(fs,size=1.0,mirror=True, mirror_viewport=(0,0,width,height)),
-        #'shaper':Shaper(fs),
         'dst':DeadSink(fs)
         }
     for f1,f2 in pairwise(in_chain.values()):
         f2.set_source(f1)
-    shape=TestShape()
     
     glClearDepth(1.0)
     glClearColor(0.0, 0.0, 0.0, 0.0)
