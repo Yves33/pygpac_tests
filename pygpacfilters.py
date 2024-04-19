@@ -6,6 +6,7 @@ import traceback
 
 import libgpac as gpac
 import time
+import logging
 
 from glmath import *
 from glutils import *
@@ -136,7 +137,7 @@ class Texture:
         print('PID configured ' + str(self.w) + 'x' + str(self.h) + '@' + self.pf)
         self.nb_textures = 0
         #recreate program but don't create textures until we know if they are on GPU or in system memory
-        if self.pf == 'yuv':
+        if self.pf in ['yuv','yuv420']:
             self.nb_textures=3
             self.format = GL_RGB
         elif self.pf == 'nv12':
@@ -212,7 +213,7 @@ class Texture:
             data = self.clone_pck.data
         #otherwise we can directly use pck.data - WARNING: this example assumes no stride after each line
 
-        if self.pf == 'yuv':
+        if self.pf in ['yuv','yuv420']:
             #push Y plane
             if not self.texture1:
                 self.texture1 = glGenTextures(1)
@@ -584,11 +585,34 @@ class FPSCounter(gpac.FilterCustom):
             pid.drop_packet()
         return 0
     
-class PidProp:
-    def __init__(self):
+class PropSetter(gpac.FilterCustom):
+    def __init__(self,session,props):
+        self.props=props
+    
+    def configure_pid(self, pid, is_remove):
+        if pid not in self.ipids:
+            pid.opid = self.new_pid()
+            pid.opid.copy_props(pid)
+            for k,v in self.props.items():
+                pid.opid.set_prop(k,v,True)
+                
+    def process(self):
+        for pid in self.ipids:
+            pck = pid.get_packet()
+            if pck==None:
+                if pid.eos:
+                    pid.opid.eos = True
+                break
+            pid.opid.forward(pck)
+            pid.drop_packet()
+            return 0
+            
+    def process_event(self,event):
         pass
-    def on_prop_enum(self,prop_name,propval):
-      print(prop_name,propval)
+        return 0
+                   
+    def on_enum_props(self,prop_name,propval):
+        print(f"Property : {prop_name}\tValue : {propval}")
 
 class Controller(gpac.FilterCustom):
     '''
@@ -602,18 +626,25 @@ class Controller(gpac.FilterCustom):
         self.paused=False
         self.step_mode=False
         self.seeking=False
-        self.dts=0
+        self.dts=0   ## last processed packet dts=>self.last_pck_dts, in pid.timescale
+        self.dur=0   ## last processed packet duration=>self.last_pack_dur, in pid.timescale
         self.timescale=1
         self.fs=session
+        self.rt=kwargs.pop("rt",0)
+        self.xs=kwargs.pop("xs",0)
+        self.xe=kwargs.pop("xe",0)
+        self._last_pck_s=time.perf_counter() ##last time a packet was processed =>last_packet_time_s
 
     def configure_pid(self, pid, is_remove):
         if pid not in self.ipids:
-            #pid.send_event(gpac.FilterEvent(gpac.GF_FEVT_PLAY))
             if not self.sink:
                 ## if we are not declared as a sink, then we should have one controller/pid
                 assert(len(self.ipids)==0)
                 pid.opid = self.new_pid()
                 pid.opid.copy_props(pid)
+            else:
+                ## if we are a sink, then we should start playing
+                self.seek(0)
             self.timescale=pid.timescale
         return 0
 
@@ -647,7 +678,9 @@ class Controller(gpac.FilterCustom):
         for pid in self.ipids:
             pid.send_event(gpac.FilterEvent(gpac.GF_FEVT_STOP))
             evt=gpac.FilterEvent(gpac.GF_FEVT_PLAY)
-            evt.play.start_range=min(time_in_s,self.duration_s)
+            evt.play.start_range=min(time_in_s+self.xs,self.xe)
+            if self.xe:
+                evt.play.end_range=self.xe
             pid.send_event(evt)
         self.paused=False
         self.seeking=True
@@ -658,12 +691,21 @@ class Controller(gpac.FilterCustom):
             return 0
         ## otherwise process packet normally
         for pid in self.ipids:
+            ## pseudo real time regulation. avoids using reframer
+            ## use rt=0 to disable. could use gpac high precisiong timer instead of perf_counter
+            if self.rt and not self.seeking:
+                if time.perf_counter()-self._last_pck_s<(self.dur/self.timescale)*self.rt:
+                    #self.reschedule(1000)
+                    return 0
+            ## start packet processing
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
                     pid.opid.eos = True
                 break
             self.dts=pck.dts
+            self.dur=pck.dur
+            self._last_pck_s=time.perf_counter()
             if self.seeking:
                 self.seeking=False                  ## self.seeking must remain till we got a packet
             if not self.sink:
@@ -671,15 +713,54 @@ class Controller(gpac.FilterCustom):
             pid.drop_packet()
         if self.step_mode:
             self.paused=True
-        return 1
+        return 0
     
+    def process_event(self,evt):
+        if evt.base.type==gpac.GF_FEVT_PLAY:
+            evt.play.start_range+=self.xs
+            if self.xe:
+                if evt.play.end_range:
+                    evt.play.end_range=min(self.xe,evt.play.end_range)
+                else:
+                    evt.play.end_range=self.xe
+        '''
+        in a playlist controller, one would have to:
+        + block event propagation
+        + determine active src (pid)
+        + compute new offset for this source
+        + seek all sources to their initial time except active src
+        '''
+
     @property
     def duration_s(self):
         d=self.ipids[0].get_prop("Duration")
         return float(d.num/d.den)
-        
+
+    def on_prop_enum(self, pname, pval):
+        print('Property ' + pname + ' value: ' + str(pval))
+
     @property
     def position_s(self):
+        return self.dts/self.timescale
+    
+    @property
+    def clip_duration_s(self):
+        d=self.ipids[0].get_prop("Duration")
+        return float(d.num/d.den)-self.offset_s
+        
+    @property
+    def clip_position_s(self):
+        return self.dts/self.timescale-self.offset_s
+    
+    @property
+    def media_duration_s(self):
+        d=self.ipids[0].get_prop("Duration")
+        return float(d.num/d.den)
+        
+    @property
+    def media_position_s(self):
+        ## should define clip_position_s (corrected from offset) and media_position_s (absolute media file time)
+        ## same for duration_s
         return self.dts/self.timescale
         
 class RateLimit:

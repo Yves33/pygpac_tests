@@ -8,112 +8,9 @@ from imgui.integrations.pygame import PygameRenderer
 import imgui
 
 from itertools import pairwise
-
-class Controller(gpac.FilterCustom):
-    '''
-    Controls playback state of input pid
-    '''
-    def __init__(self, session,**kwargs):
-        gpac.FilterCustom.__init__(self, session,"PlayPauseController")
-        self.sink=kwargs.pop("sink",False)
-        self.push_cap("StreamType", "Visual", gpac.GF_CAPS_INPUT if self.sink else gpac.GF_CAPS_INPUT_OUTPUT)
-        self.push_cap("CodecID", "raw", gpac.GF_CAPS_INPUT if self.sink else gpac.GF_CAPS_INPUT_OUTPUT)
-        self.paused=False
-        self.step_mode=False
-        self.seeking=False
-        self.dts=0
-        self.timescale=1
-
-    def configure_pid(self, pid, is_remove):
-        if pid not in self.ipids:
-            pid.send_event(gpac.FilterEvent(gpac.GF_FEVT_PLAY))
-            if not self.sink:
-                ## if we are not declared as a sink, then we should have one controller/pid
-                assert(len(self.ipids)==0)
-                pid.opid = self.new_pid()
-                pid.opid.copy_props(pid)
-            self.timescale=pid.timescale
-        return 0
-
-    def toggle(self):
-        self.resume() if self.paused else self.pause()
-
-    def pause(self):
-        if not self.paused:
-            for pid in self.ipids:
-                pid.send_event(gpac.FilterEvent(gpac.GF_FEVT_PAUSE))
-        self.paused=True
-        self.step_mode=True
-
-    def resume(self):
-        if self.paused:
-            for pid in self.ipids:
-                pid.send_event(gpac.FilterEvent(gpac.GF_FEVT_RESUME))
-        self.paused=False
-        self.step_mode=False
-
-    def stop(self):
-        for pid in self.ipids:
-            pid.send_event(gpac.FilterEvent(gpac.GF_FEVT_STOP))
-
-    def step(self):
-        if self.paused:
-            self.paused=False
-
-    def seek(self,time_in_s):
-        self._paused_after_seek=self.paused
-        for pid in self.ipids:
-            pid.send_event(gpac.FilterEvent(gpac.GF_FEVT_STOP))
-            evt=gpac.FilterEvent(gpac.GF_FEVT_PLAY)
-            evt.play.start_range=min(time_in_s,self.duration_s)
-            pid.send_event(evt)
-        self.paused=False
-        self.seeking=True
-
-    def process(self):
-        if self.paused and not self.seeking:
-            self.reschedule(10000)  ## warn ligbpac that we're doing nothing
-            return 0
-        ## otherwise process packet normally
-        for pid in self.ipids:
-            pck = pid.get_packet()
-            if pck==None:
-                if pid.eos:
-                    pid.opid.eos = True
-                break
-            self.dts=pck.dts
-            if self.seeking:
-                self.seeking=False                  ## self.seeking must remain till we got a packet
-            if not self.sink:
-                pid.opid.forward(pck)
-            pid.drop_packet()
-        if self.step_mode:
-            self.paused=True
-        return 1
-    
-    @property
-    def duration_s(self):
-        d=self.ipids[0].get_prop("Duration")
-        return float(d.num/d.den)
-        
-    @property
-    def position_s(self):
-        return self.dts/self.timescale
-
-import time
-class RateLimit:
-    def __init__(self,dt):
-        self.dt=int(dt)
-        self.current=-1
-
-    def fire(self):
-        if time.perf_counter_ns()-self.current>=self.dt:
-            self.current=time.perf_counter_ns()
-            return True
-        return False
     
 if __name__=='__main__':
-    VIDEOSRC="../../video.mp4"
+    VIDEOSRC="../video.mp4"
     ## initialize pygame and imgui
     width, height = 1280, 720
     pygame.init()
@@ -136,12 +33,13 @@ if __name__=='__main__':
 
     ## setup filter list
     in_chain={
-        'src':fs.load_src(VIDEOSRC),
-        'dec':fs.load("ffdec"), 
-        'reframer':fs.load("reframer:rt=on"),
-        'ctl':Controller(fs),
-        'glpush':fs.load("glpush.js"),
+        'src':fs.load_src(VIDEOSRC+":#clipstart=3:#clipend=5"),
+        #'dec':fs.load("ffdec"), 
+        #'reframer':fs.load("reframer:rt=on"),
+        #'ctl':Controller(fs,rt=4,xs=10,xe=25),
+        #'glpush':fs.load("glpush.js"),
         'togpu':ToGLRGB(fs),
+        'ctl':Controller(fs,rt=1,xs=10,xe=0),
         'dst':DeadSink(fs)
         }
     for f1,f2 in zip(in_chain.values(),list(in_chain.values())[1:]):
@@ -149,7 +47,7 @@ if __name__=='__main__':
     ctl=in_chain["ctl"]
     tgt=in_chain["togpu"]
 
-    ratelimit=RateLimit(1*int(1e6))
+    ratelimit=RateLimit(5*int(1e6))
     running=True
     ctl.pause()
     brightness=1.0
