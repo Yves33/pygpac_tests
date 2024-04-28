@@ -301,6 +301,9 @@ class DeadSink(gpac.FilterCustom):
                 break
             pid.drop_packet()
         return 0
+    
+    def on_prop_enum(self,prop_name,propval):
+        print(f"Property : {prop_name}\tValue : {propval}")
 
 def _adjust_size(pid_size,req_size):
     if (req_size==1.0) or req_size==(-1,-1):
@@ -392,6 +395,7 @@ class ToGLRGB(gpac.FilterCustom):
             opid = self.new_pid()
             pid.opid = opid
             pid.opid.copy_props(pid)
+            pid.opid.pck_ref = None
             self.tex_helper = Texture(pid)
         self.tex_helper.pid_update(pid)
 
@@ -412,6 +416,8 @@ class ToGLRGB(gpac.FilterCustom):
 
     def process(self):
         for pid in self.ipids:
+            if pid.opid.pck_ref:
+                continue
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
@@ -479,6 +485,14 @@ class ToGLRGB(gpac.FilterCustom):
         glBindFramebuffer(GL_FRAMEBUFFER,0)
         glBindVertexArray(0)
 
+    def packet_release(self, opid, pck):
+        if opid.pck_ref:
+            opid.pck_ref.unref()
+            opid.pck_ref = None
+
+    def on_prop_enum(self,prop_name,propval):
+        print(f"Property : {prop_name}\tValue : {propval}")
+
 class FromGLRGB(gpac.FilterCustom):
     '''
     Converts rgb texture on gpu to normal packets 
@@ -501,6 +515,7 @@ class FromGLRGB(gpac.FilterCustom):
             opid = self.new_pid()
             pid.opid = opid
             pid.opid.copy_props(pid)
+            pid.opid.pck_ref = None
 
         #get width, height, stride and pixel format - get_prop may return None if property is not yet known
         #but this should not happen for these properties with raw video, except StrideUV which is None for non (semi) planar YUV formats
@@ -523,6 +538,8 @@ class FromGLRGB(gpac.FilterCustom):
 
     def process(self):
         for pid in self.ipids:
+            if pid.opid.pck_ref:
+                continue
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
@@ -544,6 +561,14 @@ class FromGLRGB(gpac.FilterCustom):
             opck.send()
             pid.drop_packet()
         return 0
+    
+    def packet_release(self, opid, pck):
+        if opid.pck_ref:
+            opid.pck_ref.unref()
+            opid.pck_ref = None
+
+    def on_prop_enum(self,prop_name,propval):
+        print(f"Property : {prop_name}\tValue : {propval}")
 
 class FPSCounter(gpac.FilterCustom):
     '''
@@ -567,10 +592,13 @@ class FPSCounter(gpac.FilterCustom):
                 assert(len(self.ipids)==0)
                 pid.opid = self.new_pid()
                 pid.opid.copy_props(pid)
+                pid.opid.pck_ref = None
         return 0
 
     def process(self):
         for pid in self.ipids:
+            if pid.opid.pck_ref:
+                continue
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
@@ -585,6 +613,14 @@ class FPSCounter(gpac.FilterCustom):
             pid.drop_packet()
         return 0
     
+    def packet_release(self, opid, pck):
+        if opid.pck_ref:
+            opid.pck_ref.unref()
+            opid.pck_ref = None
+
+    def on_prop_enum(self,prop_name,propval):
+        print(f"Property : {prop_name}\tValue : {propval}")
+    
 class PropSetter(gpac.FilterCustom):
     def __init__(self,session,props):
         self.props=props
@@ -593,11 +629,14 @@ class PropSetter(gpac.FilterCustom):
         if pid not in self.ipids:
             pid.opid = self.new_pid()
             pid.opid.copy_props(pid)
+            pid.opid.pck_ref = None
             for k,v in self.props.items():
                 pid.opid.set_prop(k,v,True)
                 
     def process(self):
         for pid in self.ipids:
+            if pid.opid.pck_ref:
+                continue
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
@@ -609,39 +648,67 @@ class PropSetter(gpac.FilterCustom):
             
     def process_event(self,event):
         pass
-        return 0
                    
-    def on_enum_props(self,prop_name,propval):
+    def on_prop_enum(self,prop_name,propval):
         print(f"Property : {prop_name}\tValue : {propval}")
+
+    def packet_release(self, opid, pck):
+        if opid.pck_ref:
+            opid.pck_ref.unref()
+            opid.pck_ref = None
+
+from dataclasses import dataclass
+@dataclass
+class _sync_data:
+    last_pck_s:float
+    dts:int
+    dur:int
+    timescale:int
+    pidtime:float
+    seekdone=False
 
 class Controller(gpac.FilterCustom):
     '''
-    Controls playback state of input pid
+    Controls playback state of input pid. works with single file (not playlist)
+    arguments:
+    rt: float (0.0) real time regulation. 1.0 indicates real time
+    xs,xe: float start and stop of clip
+    sink: don't create output pid and behave like a sink!
     '''
     def __init__(self, session,**kwargs):
         gpac.FilterCustom.__init__(self, session,"PlayPauseController")
         self.sink=kwargs.pop("sink",False)
         self.push_cap("StreamType", "Visual", gpac.GF_CAPS_INPUT if self.sink else gpac.GF_CAPS_INPUT_OUTPUT)
+        self.push_cap("StreamType", "Audio", gpac.GF_CAPS_INPUT if self.sink else gpac.GF_CAPS_INPUT_OUTPUT)
+        self.push_cap("StreamType", "Text", gpac.GF_CAPS_INPUT if self.sink else gpac.GF_CAPS_INPUT_OUTPUT)
+        self.push_cap("StreamType", "Data", gpac.GF_CAPS_INPUT if self.sink else gpac.GF_CAPS_INPUT_OUTPUT)
         self.push_cap("CodecID", "raw", gpac.GF_CAPS_INPUT if self.sink else gpac.GF_CAPS_INPUT_OUTPUT)
         self.paused=False
         self.step_mode=False
         self.seeking=False
-        self.dts=0   ## last processed packet dts=>self.last_pck_dts, in pid.timescale
-        self.dur=0   ## last processed packet duration=>self.last_pack_dur, in pid.timescale
-        self.timescale=1
+        self.sync_data=[]
         self.fs=session
         self.rt=kwargs.pop("rt",0)
         self.xs=kwargs.pop("xs",0)
         self.xe=kwargs.pop("xe",0)
         self._last_pck_s=time.perf_counter() ##last time a packet was processed =>last_packet_time_s
+        self.block_eos(True)
+        self.set_max_pids(65365)
 
     def configure_pid(self, pid, is_remove):
         if pid not in self.ipids:
             if not self.sink:
                 ## if we are not declared as a sink, then we should have one controller/pid
-                assert(len(self.ipids)==0)
+                #assert(len(self.ipids)==0)
                 pid.opid = self.new_pid()
                 pid.opid.copy_props(pid)
+                pid.opid.pck_ref = None
+                self.sync_data.append(_sync_data(last_pck_s=0.00, 
+                                                 dts=0,
+                                                 dur=1001, 
+                                                 timescale=pid.timescale,
+                                                 pidtime=0,
+                                                 ))
             else:
                 ## if we are a sink, then we should start playing
                 self.seek(0)
@@ -678,10 +745,13 @@ class Controller(gpac.FilterCustom):
         for pid in self.ipids:
             pid.send_event(gpac.FilterEvent(gpac.GF_FEVT_STOP))
             evt=gpac.FilterEvent(gpac.GF_FEVT_PLAY)
-            evt.play.start_range=min(time_in_s+self.xs,self.xe)
+            evt.play.start_range=min(time_in_s+self.xs,self.xe if self.xe else 1000000)
             if self.xe:
                 evt.play.end_range=self.xe
             pid.send_event(evt)
+        for sync in self.sync_data:
+            sync.seekdone=0
+
         self.paused=False
         self.seeking=True
 
@@ -690,24 +760,32 @@ class Controller(gpac.FilterCustom):
             self.reschedule(10000)  ## warn ligbpac that we're doing nothing
             return 0
         ## otherwise process packet normally
-        for pid in self.ipids:
+        for sync,pid in zip(self.sync_data,self.ipids):
+            if pid.opid.pck_ref:
+                continue
             ## pseudo real time regulation. avoids using reframer
-            ## use rt=0 to disable. could use gpac high precisiong timer instead of perf_counter
+            ## use rt=0 to disable.aout, however, will buffer incomming packets and play them at normal speed
             if self.rt and not self.seeking:
-                if time.perf_counter()-self._last_pck_s<(self.dur/self.timescale)*self.rt:
-                    #self.reschedule(1000)
-                    return 0
+                if time.perf_counter()-sync.last_pck_s<(sync.dur/sync.timescale)*self.rt:
+                    self.reschedule(1000)
+                    continue
             ## start packet processing
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
                     pid.opid.eos = True
-                break
-            self.dts=pck.dts
-            self.dur=pck.dur
-            self._last_pck_s=time.perf_counter()
-            if self.seeking:
-                self.seeking=False                  ## self.seeking must remain till we got a packet
+                continue
+                #break
+            sync.dts=pck.dts
+            sync.dur=pck.dur
+            sync.timescale=pck.timescale
+            sync.last_pck_s=time.perf_counter()
+            sync.pidtime=sync.dts/sync.timescale
+            sync.seekdone=1
+            if pck.seek:
+                print("got it" )
+            if self.seeking and all([s.seekdone for s in self.sync_data]):
+               self.seeking=False ## self.seeking must remain till we got a packet. may be required to get a packet on each pid?
             if not self.sink:
                 pid.opid.forward(pck)
             pid.drop_packet()
@@ -723,14 +801,21 @@ class Controller(gpac.FilterCustom):
                     evt.play.end_range=min(self.xe,evt.play.end_range)
                 else:
                     evt.play.end_range=self.xe
-        '''
-        in a playlist controller, one would have to:
-        + block event propagation
-        + determine active src (pid)
-        + compute new offset for this source
-        + seek all sources to their initial time except active src
-        '''
 
+    def packet_release(self, opid, pck):
+        if opid.pck_ref:
+            opid.pck_ref.unref()
+            opid.pck_ref = None
+
+    def on_prop_enum(self,prop_name,propval):
+        print(f"Property : {prop_name}\tValue : {propval}")
+
+    @property
+    def dts(self):
+        for idx,pid in enumerate(self.ipids):
+            if pid.name[0]=='V':
+                return self.sync_data[idx].dts
+    
     @property
     def duration_s(self):
         d=self.ipids[0].get_prop("Duration")
@@ -741,16 +826,16 @@ class Controller(gpac.FilterCustom):
 
     @property
     def position_s(self):
-        return self.dts/self.timescale
+        return self.sync_data[0].pidtime
     
     @property
     def clip_duration_s(self):
         d=self.ipids[0].get_prop("Duration")
-        return float(d.num/d.den)-self.offset_s
+        return float(d.num/d.den)-self.xs
         
     @property
     def clip_position_s(self):
-        return self.dts/self.timescale-self.offset_s
+        return self.sync_data[0].pidtime-self.xs
     
     @property
     def media_duration_s(self):
@@ -761,8 +846,47 @@ class Controller(gpac.FilterCustom):
     def media_position_s(self):
         ## should define clip_position_s (corrected from offset) and media_position_s (absolute media file time)
         ## same for duration_s
-        return self.dts/self.timescale
-        
+        return self.sync_data[0].pidtime
+
+class PassThrough(gpac.FilterCustom):
+    def __init__(self, session,caps=["Visual"]):
+        '''Mimmics any kind of processing in audio/video chain'''
+        gpac.FilterCustom.__init__(self, session, f"{'-'.join(caps)}PassThrough")
+        for cap in caps:
+            self.push_cap("StreamType", cap, gpac.GF_CAPS_INPUT_OUTPUT)
+        self.set_max_pids(len(caps))
+
+    def configure_pid(self, pid, is_remove):
+        if is_remove:
+            return 0
+        if pid not in self.ipids:
+            pid.opid = self.new_pid()
+            pid.opid.copy_props(pid)
+            #pid.opid.pck_ref = None
+        return 0
+
+    def process(self):
+        for pid in self.ipids:
+            #if pid.opid.pck_ref:
+            #    continue
+            pck = pid.get_packet()
+            if pck==None:
+                if pid.eos:
+                    pid.opid.eos = True
+                break
+            pid.opid.forward(pck)
+            pid.drop_packet()
+        return 0
+
+    def packet_release(self, opid, pck):
+        pass
+        #if opid.pck_ref:
+        #    opid.pck_ref.unref()
+        #    opid.pck_ref = None
+
+    def on_prop_enum(self,prop_name,propval):
+        print(f"Property : {prop_name}\tValue : {propval}")
+
 class RateLimit:
     def __init__(self,dt):
         self.dt=int(dt)
@@ -773,3 +897,7 @@ class RateLimit:
             self.current=time.perf_counter_ns()
             return True
         return False
+    
+class PropDumper:
+    def on_prop_enum(self,prop_name,propval):
+        print(f"Property : {prop_name}\tValue : {propval}")
