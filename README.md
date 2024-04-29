@@ -38,7 +38,7 @@ This repo is an extended version of the full gpac python+pygame+gl example.
 
 Features:
 =========
-+ video decode pipeline
++ audio/video decode pipeline
 + playback control filter (pause/resume/seek/step)
 + transfer to gpu framebuffer (GL)
 + brightness - contrast - saturation adjustment on gpu (GLSL)
