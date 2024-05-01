@@ -28,4 +28,4 @@ gpac (https://github.com/gpac/gpac)
 
 Installation:
 =============
-edit gpac_gl_full_example.py to acapt path to input video. Run through your favorite shell/dev environnement.
+edit gpac_gl_full_example.py to adapt path to input video. Run through your favorite shell/dev environnement.

@@ -57,7 +57,7 @@ if __name__=='__main__':
 
     ## filter chain : dict {key : (gpac.filter, [srckey#linkargs,srckey#linkargs])}
     ## todo: overwrite FilterSession to load from json. requires to modify custom filters to enable string initialisation
-    f_chain={
+    '''f_chain={
         'clip'   :   ( fs.load("fin:src="+VIDEOSRC),[] ),
         'vdec'  :   ( fs.load('ffdec'),['clip#video']),    ## 'nvdec'
         'adec'  :   ( fs.load('ffdec'),['clip#audio']),
@@ -66,6 +66,21 @@ if __name__=='__main__':
         'togpu' :   ( ToGLRGB(fs),['ctl#video']),
         ## insert your Video processing filters here
         'dst'   :   ( DeadSink(fs),['@0'] ),
+        ## audio chain
+        ### insert you audio processing filters here
+        'resamp':   ( fs.load("resample"),['ctl#audio']),
+        'aout'  :   (fs.load("aout"),['@0'])
+    }'''
+    f_chain={
+        'clip'   :   ( fs.load("fin:src="+VIDEOSRC),[] ),
+        'vdec'  :   ( fs.load('ffdec'),['clip#video']),    ## 'nvdec'
+        'adec'  :   ( fs.load('ffdec'),['clip#audio']),
+        ## video chain
+        'togpu' :   ( ToGLRGB(fs),['vdec#video']),
+        'apass'  :  (PassThrough(fs,caps=['audio']),['adec#audio']),
+        'ctl'   :   ( Controller(fs,rt=1.0),['togpu#video',"apass#audio"] ),
+        ## insert your Video processing filters here
+        'dst'   :   ( DeadSink(fs),['@0#video'] ),
         ## audio chain
         ### insert you audio processing filters here
         'resamp':   ( fs.load("resample"),['ctl#audio']),
