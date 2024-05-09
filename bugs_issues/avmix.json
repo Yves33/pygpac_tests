@@ -1,0 +1,9 @@
+[  
+ {"id": "seq1", "loop": -1, "start": 0,  "seq":  
+  [  
+   { "id": "V1", "src": [{"in": "gostripes.mp4"}], "start": 0, "stop": 5, "keep_alive":true, "seek":true},  
+   { "id": "V2", "src": [{"in": "cwstripes.mp4"}], "start": 5, "stop": 10,"keep_alive":true, "seek":true}  
+  ],  
+  "transition": { "dur": 1, "type": "mix"}  
+ }
+]

@@ -1,0 +1,189 @@
+#indicates the size of the scene - if not set the scene is not scaled, otherwise it is scaled to the size of the input pid
+#adding a second hash sign will comment the define
+#size	600x600
+
+OrderedGroup {
+ children [
+  Background2D { url "gpid://"}
+
+  #test fill with rotation
+  Transform2D {
+   rotationAngle 0.3
+   translation 200 200
+   children [
+    Shape {
+     appearance Appearance {
+      material Material2D {
+       lineProps DEF LP LineProperties {
+        width 0
+       }
+       filled TRUE
+       emissiveColor 0 1 0
+      }
+     }
+     geometry DEF REC Rectangle {
+      size 100 100
+     }
+    }
+   ]
+  }
+
+  #test strike with rotation and blending
+  Transform2D {
+   rotationAngle 0.3
+   translation 0 200
+   children [
+    Shape {
+     appearance Appearance {
+      material Material2D {
+       lineProps LineProperties {
+        width 10
+        lineColor 1 1 1
+       }
+      }
+     }
+     geometry USE REC
+    }
+   ]
+  }
+
+
+  #test fill with rotation and blending
+  Transform2D {
+   rotationAngle 0.3
+   translation -200 200
+   children [
+    Shape {
+     appearance Appearance {
+      material Material2D {
+       lineProps USE LP
+       filled TRUE
+       emissiveColor 0 0 1
+       transparency 0.5
+      }
+     }
+     geometry USE REC
+    }
+   ]
+  }
+
+  #test fill with alpha radial gradient
+  DEF T1 Transform2D {
+   rotationAngle 0.3
+   translation -200 50
+   children [
+    Shape {
+     appearance Appearance {
+      material Material2D {
+       lineProps USE LP
+       filled TRUE
+      }
+      texture RadialGradient {
+       focalPoint 0.75 0.5
+       key [0 0.6 1]
+       keyValue [1 1 1 1 0 0 0 0 0]
+       opacity [1 1 0.0]
+      }
+     }
+     geometry USE REC
+    }
+   ]
+  }
+
+  #test fill with bitmap
+  DEF T2 Transform2D {
+   rotationAngle 0.3
+   scale 1.5 1.5
+   translation 200 50
+   children [
+    Shape {
+     appearance Appearance {
+      material Material2D {
+       lineProps USE LP
+       filled TRUE
+      }
+      texture RadialGradient {
+       focalPoint 0.75 0.5
+       key [0 0.6 1]
+       keyValue [1 1 1 1 0 0 0 0 0]
+       opacity [1 1 0.0]
+      }
+     }
+     geometry USE REC
+    }
+   ]
+  }
+
+  #test fill with alpha linear gradient and clipping
+  Layer2D {
+   size 80 80
+   children [
+    Transform2D {
+     rotationAngle 0.3
+     translation 0 0
+     children [
+      Shape {
+       appearance Appearance {
+        material Material2D {
+         lineProps USE LP
+         filled TRUE
+        }
+        texture LinearGradient {
+         startPoint -1 0
+         key [0 0.6 1]
+         keyValue [0 1 0 0 1 0 0 0 1]
+         opacity [1 1 0.0]
+        }
+       }
+       geometry USE REC
+      }
+     ]
+    }
+   ]
+  }
+
+
+  #test text
+  Transform2D {
+   translation 0 -200
+   children [
+    Shape {
+     appearance Appearance {
+      material Material2D {
+       emissiveColor 0 0 0
+       filled TRUE
+      }
+     }
+     geometry Text {
+      string ["GPAC"]
+      fontStyle FontStyle {
+       justify ["MIDDLE"]
+       size 80
+      }
+     }
+    }
+   ]
+  }
+
+  #and test with color transform
+  ColorTransform {
+   mrr 0
+   mgg 0
+   mbb 0
+   mbr 1
+   mrg 0
+   tr 0
+   children [
+    Transform2D {
+      translation 0 -200
+      children [
+	USE T1
+	USE T2
+      ]
+    }
+
+   ]
+  }
+
+ ]
+}

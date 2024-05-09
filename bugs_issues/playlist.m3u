@@ -1,0 +1,8 @@
+##begin playlist.m3u
+#start=2.0 stop=8.0 cat
+ygstripes.mp4
+##start=3.0 stop=7.0
+cwstripes.mp4
+#start=0.0 stop=10.0
+gostripes.mp4
+##end playlist
