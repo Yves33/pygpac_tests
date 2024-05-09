@@ -33,7 +33,6 @@ if __name__=='__main__':
 
 
     VIDEOSRC="../video.mp4"
-    VIDEOSRC="/home/yves/Bureau/Delilah.mp4"
     ## initialize pygame and imgui
     width, height = 1280, 720
     pygame.init()
@@ -70,25 +69,34 @@ if __name__=='__main__':
         ### insert you audio processing filters here
         'resamp':   ( fs.load("resample"),['ctl#audio']),
         'aout'  :   (fs.load("aout"),['@0'])
-    }'''
+    }
+    ctl=f_chain["ctl"][0]        ## the controller
+    tgt=f_chain["togpu"][0]      ## the filter owning texture/FBO to display in imgui
+    vrec=f_chain["togpu"][0]     ## the filter owning texture/FBO to record
+    arec=f_chain["ctl"][0]       ## the fiter from where audio is recorded
+    '''
     f_chain={
-        'clip'   :   ( fs.load("fin:src="+VIDEOSRC),[] ),
-        'vdec'  :   ( fs.load('ffdec'),['clip#video']),    ## 'nvdec'
-        'adec'  :   ( fs.load('ffdec'),['clip#audio']),
+        #'clip'   :   ( fs.load("fin:src="+VIDEOSRC+":gfreg=ffdmx,nvdec"),[] ),
+        'fin'   :   ( fs.load_src("../playlist.m3u"),[]),
+        'clip' :    ( fs.load("flist:timescale=30000:sigcues=1"),['fin']),
         ## video chain
-        'togpu' :   ( ToGLRGB(fs),['vdec#video']),
-        'apass'  :  (PassThrough(fs,caps=['audio']),['adec#audio']),
-        'ctl'   :   ( Controller(fs,rt=1.0),['togpu#video',"apass#audio"] ),
+        'togpu' :   ( ToGLRGB(fs),['clip#video']),
         ## insert your Video processing filters here
+        'apass'  :  (PassThrough(fs,caps=['audio']),['clip#audio']),
+        ## insert your audio processing filters here
+        'ctl'   :   ( Controller(fs,rt=1.0),['togpu#video',"apass#audio"] ),
         'dst'   :   ( DeadSink(fs),['@0#video'] ),
         ## audio chain
         ### insert you audio processing filters here
         'resamp':   ( fs.load("resample"),['ctl#audio']),
         'aout'  :   (fs.load("aout"),['@0'])
     }
-    '''
-    ## alternate with reframer. real time regulation is done in reframer and not controller
-    f_chain={
+    ctl=f_chain["ctl"][0]        ## the controller
+    tgt=f_chain["togpu"][0]      ## the filter owning texture/FBO to display in imgui
+    vrec=f_chain["ctl"][0]       ## the filter owning texture/FBO to record
+    arec=f_chain["ctl"][0]       ## the fiter from where audio is recorded
+    
+    '''f_chain={
         'clip'   :   ( fs.load("fin:src="+VIDEOSRC),[] ),
         'reframer': ( fs.load('reframer:rt=on:raw=av'),['@0']),
         'ctl'   :   ( Controller(fs,rt=0.0),['@0#video','@0#audio'] ),
@@ -99,18 +107,15 @@ if __name__=='__main__':
         'resamp':   ( fs.load("resample"),['ctl#audio']),
         'aout'  :   (fs.load("aout"),['@0'])
     }
-    '''
-    link(f_chain)
     ctl=f_chain["ctl"][0]        ## the controller
     tgt=f_chain["togpu"][0]      ## the filter owning texture/FBO to display in imgui
     vrec=f_chain["togpu"][0]     ## the filter owning texture/FBO to record
     arec=f_chain["ctl"][0]       ## the fiter from where audio is recorded
+    '''
+    link(f_chain)
 
     running=True
     ctl.pause()
-    brightness=1.0
-    contrast=1.0
-    saturation=1.0
     recording=False
     changed=False
     seekto=0
@@ -140,7 +145,10 @@ if __name__=='__main__':
         imgui.new_frame()
         imgui.begin("Texture window", True)
         wwidth = imgui.get_window_content_region_max()[0]-2*imgui.get_style().frame_padding.x
-        imgui.image(tgt.fbo_attachement, wwidth,wwidth*tgt.o_height//tgt.o_width, uv0=(0,1),uv1=(1,0),border_color=(0, 0, 0, 1))
+        try:
+            imgui.image(tgt.fbo_attachement, wwidth,wwidth*tgt.o_height//tgt.o_width, uv0=(0,1),uv1=(1,0),border_color=(0, 0, 0, 1))
+        except:
+            pass
         ## playback controls
         if imgui.button("Play" if ctl.paused else "Pause"):
             ctl.toggle()
@@ -149,11 +157,11 @@ if __name__=='__main__':
         imgui.same_line()
         if imgui.button("Step"):
             ctl.step()
-            print("Control : ",ctl.dts,"Renderer : ",tgt.dts)
+            print("Control : ",ctl.sync_data[0].dts,"Renderer : ",tgt.dts)
         imgui.internal.pop_item_flag()
         imgui.pop_style_var()
         imgui.same_line()
-        imgui.text(f"dts: {ctl.dts:008d} {ctl.clip_position_s:5.2f}")
+        imgui.text(f"Position {ctl.clip_position_s:5.2f} / {ctl.clip_duration_s:5.2f}")
         _seek, seekto=imgui.input_float("Seek to",seekto,0,0,format='%.3f',flags=imgui.INPUT_TEXT_ENTER_RETURNS_TRUE)
         if _seek:
             ctl.seek(seekto)

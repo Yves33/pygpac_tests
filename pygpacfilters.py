@@ -368,9 +368,7 @@ class ToGLRGB(gpac.FilterCustom):
         glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,self.fbo_attachement,0)
         ## if a depth buffer is required. don't forget to also delete the attachment above
         #self.depth_attachment=glGenRenderbuffers(1)
-        #glBindRenderbuffer(GL_RENDERBUFFER, self.depth_attachment)
-        #glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h)
-        #glBindRenderbuffer(GL_RENDERBUFFER, 0)
+        #glBindRenderbuffer(GL_RENDERformat_listBUFFER, 0)
         #glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, self.depth_attachment)
         glBindTexture(GL_TEXTURE_2D,0)
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
@@ -416,8 +414,8 @@ class ToGLRGB(gpac.FilterCustom):
 
     def process(self):
         for pid in self.ipids:
-            if pid.opid.pck_ref:
-                continue
+            #if pid.opid.pck_ref:
+            #    continue
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
@@ -538,8 +536,8 @@ class FromGLRGB(gpac.FilterCustom):
 
     def process(self):
         for pid in self.ipids:
-            if pid.opid.pck_ref:
-                continue
+            #if pid.opid.pck_ref:
+            #    continue
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
@@ -597,8 +595,8 @@ class FPSCounter(gpac.FilterCustom):
 
     def process(self):
         for pid in self.ipids:
-            if pid.opid.pck_ref:
-                continue
+            #if pid.opid.pck_ref:
+            #    continue
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
@@ -635,8 +633,8 @@ class PropSetter(gpac.FilterCustom):
                 
     def process(self):
         for pid in self.ipids:
-            if pid.opid.pck_ref:
-                continue
+            #if pid.opid.pck_ref:
+            #    continue
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
@@ -761,8 +759,8 @@ class Controller(gpac.FilterCustom):
             return 0
         ## otherwise process packet normally
         for sync,pid in zip(self.sync_data,self.ipids):
-            if pid.opid.pck_ref:
-                continue
+            #if pid.opid.pck_ref:
+            #    continue
             ## pseudo real time regulation. avoids using reframer
             ## use rt=0 to disable.aout, however, will buffer incomming packets and play them at normal speed
             if self.rt and not self.seeking:
@@ -782,8 +780,6 @@ class Controller(gpac.FilterCustom):
             sync.last_pck_s=time.perf_counter()
             sync.pidtime=sync.dts/sync.timescale
             sync.seekdone=1
-            if pck.seek:
-                print("got it" )
             if self.seeking and all([s.seekdone for s in self.sync_data]):
                self.seeking=False ## self.seeking must remain till we got a packet. may be required to get a packet on each pid?
             if not self.sink:
@@ -809,44 +805,37 @@ class Controller(gpac.FilterCustom):
 
     def on_prop_enum(self,prop_name,propval):
         print(f"Property : {prop_name}\tValue : {propval}")
-
-    @property
-    def dts(self):
-        for idx,pid in enumerate(self.ipids):
-            if pid.name[0]=='V':
-                return self.sync_data[idx].dts
     
     @property
     def duration_s(self):
-        d=self.ipids[0].get_prop("Duration")
-        return float(d.num/d.den)
-
-    def on_prop_enum(self, pname, pval):
-        print('Property ' + pname + ' value: ' + str(pval))
+        return self.clip_duration_s
 
     @property
     def position_s(self):
-        return self.sync_data[0].pidtime
+        return self.clip_position_s
     
     @property
     def clip_duration_s(self):
-        d=self.ipids[0].get_prop("Duration")
-        return float(d.num/d.den)-self.xs
+        return self.media_duration_s-self.xs
         
     @property
     def clip_position_s(self):
-        return self.sync_data[0].pidtime-self.xs
+        return self.media_position_s-self.xs
     
     @property
     def media_duration_s(self):
-        d=self.ipids[0].get_prop("Duration")
-        return float(d.num/d.den)
+        if len(self.ipids):
+            d=self.ipids[0].get_prop("MovieTime")
+            return float(d.num/d.den)
+        return 0
         
     @property
     def media_position_s(self):
-        ## should define clip_position_s (corrected from offset) and media_position_s (absolute media file time)
-        ## same for duration_s
-        return self.sync_data[0].pidtime
+        ## due to poor man's synchro, audio and video time may differ. return video time
+        for pid,sync in zip(self.ipids,self.sync_data):
+            if pid.get_prop("StreamType")=='Visual':
+                return sync.pidtime
+        return 0
 
 class PassThrough(gpac.FilterCustom):
     def __init__(self, session,caps=["Visual"]):
@@ -854,7 +843,7 @@ class PassThrough(gpac.FilterCustom):
         gpac.FilterCustom.__init__(self, session, f"{'-'.join(caps)}PassThrough")
         for cap in caps:
             self.push_cap("StreamType", cap, gpac.GF_CAPS_INPUT_OUTPUT)
-        self.set_max_pids(len(caps))
+        self.set_max_pids(32)
 
     def configure_pid(self, pid, is_remove):
         if is_remove:
