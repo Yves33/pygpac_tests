@@ -1,4 +1,5 @@
 some of the bugs are illustrated by running minimal example bugs_compilation.py
+as I have made lots of corrections in my libgpac.py, line numbers may not be 100% accurate
 
 #############
 ## pylance reports the following errors:
@@ -129,6 +130,15 @@ NB: I would naïvely expect all filters to have an ID (unique).
 +   return val
 ```
 
+
+#################
+## opid_prop
+filter.opid_prop() does not work. the return statement in def _pid_prop() is erronated
+@@2675
+```
+- return self._pid_prop_ex(self, prop_name, pid, False)
++ return self._pid_prop_ex(prop_name, pid, False)
+```
 
 #################
 ## duplicated custom filters in session._filters

@@ -85,14 +85,14 @@ class PassThrough(gpac.FilterCustom):
             '''
             pid.opid.set_prop("test_string",'gpac is buggy', gpac.GF_PROP_STRING)
             pid.opid.set_prop("test_frac",2.2, gpac.GF_PROP_FRACTION64)
-            pid.opid.set_prop("test_string_list",['gpac','is','really','buggy'], gpac.GF_PROP_STRING_LIST)
+            #pid.opid.set_prop("test_string_list",['gpac','is','really','buggy'], gpac.GF_PROP_STRING_LIST)
         return 0
 
     def process(self):
         for pid in self.ipids:
             assert(pid.opid.get_prop('test_string')=='gpac is buggy')
             assert(fract(pid.opid.get_prop('test_frac'))==fract(gpac.Fraction64(2200000,1000000)))
-            assert('buggy' in pid.opid.get_prop("test_string_list"))
+            #assert('buggy' in pid.opid.get_prop("test_string_list"))
             pck = pid.get_packet()
             if pck==None:
                 if pid.eos:
@@ -181,8 +181,17 @@ while True:
                 print(idx, type(f), f.name, f.ID, f.clock_hint_mediatime, f.clock_hint_time)
             else:
                 print(idx, type(f), f.name, f.ID)
+            '''
+            3)
+            filter.opid_prop does not work. the return statement in def _pid_prop() is erronated
+            @@2675
+            - return self._pid_prop_ex(self, prop_name, pid, False)
+            + return self._pid_prop_ex(prop_name, pid, False)
+            '''
+            if f.nb_opid>0:
+                print(f.opid_prop(0,'StreamType'))
             '''        
-            3) Custom filters are inserted twice in fs._filters
+            4) Custom filters are inserted twice in fs._filters
             + once as gpac.Filter (@@ 3240)
             + once as __main__.FilterCustom (@@3247)
             both have the same value for _filter ( assert (fs._filters[1]._filter==fs._filters[2]._filter) )
@@ -200,7 +209,7 @@ while True:
         fs.print_graph()
 
         '''
-        4) Not yet sure how to handle the problem (if it's a gpac problem)
+        5) Not yet sure how to handle the problem (if it's a gpac problem)
 
         remove apass and aout filters after 30 frames and wait another 30 frames
         + this leaves some connected filters (ffdec:aac, resample)

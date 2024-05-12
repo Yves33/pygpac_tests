@@ -32,7 +32,7 @@ if __name__=='__main__':
                     f1.reconnect()
 
 
-    VIDEOSRC="../video.mp4"
+    VIDEOSRC="../video.mp4" ## sys.argv[1]
     ## initialize pygame and imgui
     width, height = 1280, 720
     pygame.init()
@@ -76,9 +76,7 @@ if __name__=='__main__':
     arec=f_chain["ctl"][0]       ## the fiter from where audio is recorded
     '''
     f_chain={
-        #'clip'   :   ( fs.load("fin:src="+VIDEOSRC+":gfreg=ffdmx,nvdec"),[] ),
-        'fin'   :   ( fs.load_src("../playlist.m3u"),[]),
-        'clip' :    ( fs.load("flist:timescale=30000:sigcues=1"),['fin']),
+        'clip'   :   ( fs.load("fin:src="+VIDEOSRC+":gfreg=ffdmx,nvdec"),[] ),
         ## video chain
         'togpu' :   ( ToGLRGB(fs),['clip#video']),
         ## insert your Video processing filters here
