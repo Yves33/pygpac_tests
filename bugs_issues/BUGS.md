@@ -124,7 +124,8 @@ NB: I would naïvely expect all filters to have an ID (unique).
 +   except:
 +       return None ##'_'+hex(id(self))+'_' ## should we overwrite None ID with python specific id?
 ```
-NB: whether ID has to be overwrityten by object ID when ID is may not be coherent with C / Javascript interfaces.  
+NB: whether ID has to be overwrityten by object ID when ID is None may not be coherent with C / Javascript interfaces. 
+ 
 #################
 ## clock_hint_mediatime
 (not that sure, but at least does not raise error!)
