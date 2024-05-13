@@ -1,11 +1,12 @@
-import my_libgpac as gpac
+import libgpac as gpac
 '''
-The game is to have this code work after removing *all* comments (but keep docstrings)!
+The goal is to have this code work after removing *all* comments (but keep docstrings)!
 + pid.set_prop(gpac.GF_PROP_STRING)
 + pid.set_prop(gpac.GF_PROP_FRACTION|FRACTION64) when value is float or int
 + pid.set_prop(gpac.GF_PROP_STRING_LIST)
 + filter.clock_hint_mediatime()
 + filter.ID
++ filter.opid_prop()
 + duplicate custom filter insertion in sesssion._filters
 + filter.remove() not working as (I) expected
 '''
@@ -116,7 +117,7 @@ gpac.set_args([ "",
 fs = gpac.FilterSession(gpac.GF_FS_FLAG_NON_BLOCKING | gpac.GF_FS_FLAG_REQUIRE_SOURCE_ID, "")
 
 layout=0
-VIDEOSRC="/home/yves/Bureau/Delilah.mp4"
+VIDEOSRC="../video.mp4"
 if layout==0:
     '''
     illustrates bug on filter ID and clock_hint_(media)time
@@ -175,7 +176,7 @@ while True:
                 except:
                     return None ## return '_'+hex(id(self))+'_' to overwrite None ID. But maybe the bug is in C code?
                     
-            NB: I would naïvely expect every filter to have a unique ID. In the present case, demuxer, decoder, vout, aout have None as an ID
+            NB: I would naïvely expect every filter to have a unique ID (bug from C lib?). In the present case, demuxer, decoder, vout, aout have None as an ID
             '''
             if isinstance(f,gpac.FilterCustom):
                 print(idx, type(f), f.name, f.ID, f.clock_hint_mediatime, f.clock_hint_time)
@@ -215,6 +216,7 @@ while True:
         + this leaves some connected filters (ffdec:aac, resample)
         + this does not remove aout
         + trying to force remove all dynamically inserted filters (ffdec:aac, resample) does not solve the problem
+        ? is there a way to force disconnection of these filters?
         '''
         if layout==2 and  'apass' in fsgraph.keys():
             fs.fire_event(gpac.FilterEvent(gpac.GF_FEVT_STOP))
@@ -229,6 +231,7 @@ while True:
 
     if not cnt%60:
         if layout==2:
+            ''' we should have removed all audio chain, i.e AudioPassThrough, ffdec:aac, resample, aout'''
             assert( 'resample' not in [f.name for f in fs._filters] )
         break
         

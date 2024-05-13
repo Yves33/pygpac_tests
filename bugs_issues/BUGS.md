@@ -27,7 +27,7 @@ As I have made lots of corrections in my libgpac.py, line numbers may not be 100
 
 NB:  
 if pcode is not str, _pname is not declared and prop_name is None (but _prop_to_python expects str as pname).  
-should explicitely handle the case when pcode is not a string (raise error)
+should we explicitely handle the case when pcode is not a string (raise error)?
 
 @@ 4672 : "value" is not defined  
 =>def roll(self,value)  
@@ -47,7 +47,7 @@ should explicitely handle the case when pcode is not a string (raise error)
 @@ 4876  
 
 ###############
-## set_prop (p,v GF_PROP_STRING|GF_PROP_STRING_LIST|GF_PROP_4CC)
+## set_prop (p,v, GF_PROP_STRING|GF_PROP_STRING_LIST|GF_PROP_4CC)
 see previous (email) comments.  
 the code overwrites the type str in locals() dict, which makes it impossible to later transtype using str() (@@3051)
 
@@ -78,7 +78,7 @@ the code overwrites the type str in locals() dict, which makes it impossible to 
 NB: GF_PROP_STRING_LIST still does not work (incompatible ctypes pointers)  
 
 ###############
-## set_prop (p,v GF_PROP_FRACTION|gf_PROP_FRACTION64)
+## set_prop (p,v, GF_PROP_FRACTION|gf_PROP_FRACTION64)
 is_integer() is not defined (javascript spotted!)  
 the code does not ensure that frac.num is an int
 
@@ -124,7 +124,7 @@ NB: I would naïvely expect all filters to have an ID (unique).
 +   except:
 +       return None ##'_'+hex(id(self))+'_' ## should we overwrite None ID with python specific id?
 ```
-
+NB: whether ID has to be overwrityten by object ID when ID is may not be coherent with C / Javascript interfaces.  
 #################
 ## clock_hint_mediatime
 (not that sure, but at least does not raise error!)
@@ -159,7 +159,8 @@ filter.opid_prop() does not work. the return statement in def _pid_prop() is err
 Custom filters are inserted twice in fs._filters
 once as gpac.Filter (@@ 3240)
 once as __main__.FilterCustom (@@3247)
-both have the same value for `_filter` ( assert (fs._filters[1]._filter==fs._filters[2]._filter) )
+both have the same value for `_filter`  
+( assert (fs._filters[1]._filter==fs._filters[2]._filter) )
 
 Is it an intended behavior? and if not, then we could we *either*:  
 =>prevent custom filter insertion (but then, we cannot access FilterCustom specific fields and methods):
@@ -172,7 +173,7 @@ Is it an intended behavior? and if not, then we could we *either*:
 +    session._filters.append(self) ## should never happen!
 ```
 
-=>remove the gpac.Filter instance added by libgpac and add the FilterCustom
+=>remove the gpac.Filter instance added by libgpac and add the FilterCustom  
 (@@3247)
 ```
 - session._filters.append(self)
