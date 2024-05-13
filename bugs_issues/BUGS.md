@@ -1,28 +1,40 @@
-some of the bugs are illustrated by running minimal example bugs_compilation.py
-as I have made lots of corrections in my libgpac.py, line numbers may not be 100% accurate
+Some of the bugs are illustrated by running minimal example bugs_compilation.py.  
+As I have made lots of corrections in my libgpac.py, line numbers may not be 100% accurate
 
 #############
 ## pylance reports the following errors:
-(errors and possible solutions below
+(errors and possible solutions below. some needs to be checked!)  
 
 @@ 321  : "e2s" is not defined     
-=> e2s declared at line 328. should be moved before line 321)  
+=> e2s declared at line 338. should be moved before line 321)  
+
 @@ 3088 : "GF_PropVec2i" is not defined  
-=> should be (PropVec2i * len(prop))   
+=> prop_val.value.v2i_list.vals = (PropVec2i * len(prop))  
+
 @@ 3164 :"_f" is not defined  
 => ???  
+
 @@ 3240 : "URL" is not defined  
-=> should be raise Exception('Failed to create filter ' + fname + ': ' + e2s(err))  
+=> raise Exception('Failed to create filter ' + fname + ': ' + e2s(err))  
+
 @@ 3833 : "not_in_final_flush" is not defined  
-=> there's a space/underscore typo in this line or previous one, but don't know where.  (not_in_final_flush = not in_final_flush ?)
+=> there's a space/underscore typo in this line or previous one, but don't know where.  (not_in_final_flush = not in_final_flush ?)  
+
+
 @@ 3893 : "pname" is not defined  
-=> return _prop_to_python(pcode, propval)  
 @@ 3893 : "prop" is not defined  
-=> return _prop_to_python(pcode, propval)  
+=> return _prop_to_python(_pname, propval)   ## to be checked! _pname or prop_name??  
+
+NB:  
+if pcode is not str, _pname is not declared and prop_name is None (but _prop_to_python expects str as pname).  
+should explicitely handle the case when pcode is not a string (raise error)
+
 @@ 4672 : "value" is not defined  
 =>def roll(self,value)  
+
 @@ 4712 : "value" is not defined  
 =>def seqnum(self, value)  
+
 @@ 4817 : "url" is not defined  
 => if not fio_ref.factory.root_obj.exists(_url):
 
@@ -89,12 +101,14 @@ the code does not ensure that frac.num is an int
 
 same modifications for gpac.GF_PROP_FRACTION64 @@ 30013
 
-NB: documentation states: "Properties values are automatically converted to or from python types whenever possible. Types with no python equivalent (vectors, fractions) are defined as classes in python."   
+NB1: documentation states: "Properties values are automatically converted to or from python types whenever possible. Types with no python equivalent (vectors, fractions) are defined as classes in python."   
 But python has fractions.Fraction in standard lib  
+
+NB2: whether floats should be treated the same way as int when prop%1==0 is a possibility. not sure it is coherent with C / Javascript interfaces.  
 
 ################
 ## filter.ID may be None
-filter.ID may be None (or is it a bug in C lib), but the case is not properly handled by libgpac
+filter.ID may be None (or is it a bug in C lib?), but the case is not properly handled by libgpac.  
 NB: I would naïvely expect all filters to have an ID (unique).
 
 @@ 2016
